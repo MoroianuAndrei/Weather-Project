@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.0">
+    <persistence-unit name="postgresPersistence">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <class>org.example.data_source.model.UserEntity</class>
+        <class>org.example.data_source.model.RoleEntity</class>
+        <properties>
+            <property name="eclipselink.jdbc.url" value="jdbc:postgresql://localhost:5432/mip_weather"/>
+            <property name="eclipselink.jdbc.driver" value="org.postgresql.Driver"/>
+            <property name="eclipselink.jdbc.user" value="insert_your_username"/>
+            <property name="eclipselink.jdbc.password" value="insert_your_password"/>
+        </properties>
+    </persistence-unit>
+    <persistence-unit name="h2Persistence">
+        <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+        <class>org.example.data_source.model.UserEntity</class>
+        <class>org.example.data_source.model.RoleEntity</class>
+        <properties>
+            <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:mem:mip_weather"/>
+            <property name="jakarta.persistence.jdbc.driver" value="org.h2.Driver"/>
+            <property name="jakarta.persistence.jdbc.user" value="sa"/>
+            <property name="jakarta.persistence.jdbc.password" value="password"/>
+            <property name="jakarta.persistence.schema-generation.database.action" value="create"/>
+            <property name="jakarta.persistence.schema-generation.create-source" value="metadata"/>
+            <property name="eclipselink.logging.level" value="FINE"/>
+        </properties>
+    </persistence-unit>
+</persistence>

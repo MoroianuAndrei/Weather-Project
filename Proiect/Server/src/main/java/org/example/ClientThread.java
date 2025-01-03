@@ -5,7 +5,6 @@ import org.example.data_source.dao.LocationWeatherDao;
 import org.example.data_source.dao.UserDao;
 import org.example.data_source.model.AppUsersRolesEntity;
 import org.example.data_source.model.LocationWeatherEntity;
-import org.example.data_source.model.RoleEntity;
 import org.example.data_source.model.UserEntity;
 import org.example.network.Request;
 
@@ -36,9 +35,11 @@ public class ClientThread extends Thread {
     public void run() {
         try {
             while (true) {
+                // Citim mesajul primit de la client
                 String message = (String) this.in.readObject();
                 Request request = new Gson().fromJson(message, Request.class);
 
+                // Afisam informatiile primite de la client
                 System.out.println("Received email: " + request.getEmail());
                 System.out.println("Received password: " + request.getPassword());
 
@@ -53,47 +54,55 @@ public class ClientThread extends Thread {
         String email = request.getEmail();
         String password = request.getPassword();
 
+        // Verificam daca utilizatorul exista
         UserEntity user = userDao.findAll().stream()
                 .filter(u -> u.getEmail().equals(email))
                 .findFirst()
                 .orElse(null);
 
         if (user != null) {
-            // Email exists, check password
+            // Email exista, verificam parola
             if (user.getPassword().equals(password)) {
-                // Login successful, get weather info based on latitude and longitude
+                // Login reusit, trimitem mesajul de bun venit
+                sendResponse("Login successful. Welcome, " + user.getUsername() + "!", "");
+
+                // Trimitem mesajul de vremea
                 String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
-                sendResponse("Login successful. Welcome, " + user.getUsername() + "!", weatherInfo); // Adăugăm și vremea
+                sendResponse("", weatherInfo); // Trimitem doar informatiile meteo
             } else {
-                sendResponse("Incorrect password. Please try again.", ""); // Fără informații meteo
+                sendResponse("Incorrect password. Please try again.", ""); // Fara informatii meteo
             }
         } else {
-            // Email does not exist, create a new user
+            // Emailul nu exista, creem un utilizator nou
             UserEntity newUser = new UserEntity();
             newUser.setUsername(request.getUsername());
             newUser.setEmail(email);
             newUser.setPassword(password);
 
-            // Save the new user
+            // Salvam noul utilizator
             userDao.save(newUser);
 
-            // After saving the user, add the user to app_users_roles with role_id = 1 (for 'user' role)
+            // Adaugam utilizatorul in tabelul de relatii user-role
             AppUsersRolesEntity appUsersRolesEntity = new AppUsersRolesEntity();
-            appUsersRolesEntity.setAppUserId(newUser.getId());  // Ensure this ID is properly set after persisting the user
-            appUsersRolesEntity.setRoleId(1);  // 1 represents the 'user' role
+            appUsersRolesEntity.setAppUserId(newUser.getId());  // Asiguram ca ID-ul este corect
+            appUsersRolesEntity.setRoleId(1);  // 1 reprezinta rolul de 'user'
 
-            // Save the relation in app_users_roles
-            System.out.println("Saving user-role relation: userId = " + newUser.getId() + ", roleId = 1");
+            // Salvam relatia in tabela user-role
             userDao.saveAppUsersRoles(appUsersRolesEntity);
 
-            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!", ""); // Fără informații meteo
+            // Trimitem mesaj de creare cont
+            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!", "");
+
+            // Trimitem mesajul de vremea
+            String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
+            sendResponse("", weatherInfo); // Trimitem doar informatiile meteo
         }
     }
 
-    // Simulate fetching weather info based on latitude and longitude
+    // Simuleaza obtinerea informatiilor meteo pe baza latitudinii si longitudinii
     private String getWeatherInfo(double latitude, double longitude) {
-        // Obține toate locațiile din baza de date
-        LocationWeatherDao locationWeatherDao = new LocationWeatherDao(); // Sau injectează DAO-ul, în funcție de arhitectura ta
+        // Obtinem toate locatiile din baza de date
+        LocationWeatherDao locationWeatherDao = new LocationWeatherDao();
         List<LocationWeatherEntity> locations = locationWeatherDao.findAll();
 
         // Variabile pentru locația cea mai apropiată
@@ -119,10 +128,13 @@ public class ClientThread extends Thread {
     }
 
     private void sendResponse(String message, String weatherInfo) {
-        String fullMessage = message + " " + weatherInfo; // Concatenăm mesajul cu informațiile meteo
-        Request response = new Request("Server", fullMessage, "", ""); // Trimitem răspunsul
+        // Formam mesajul complet
+        String fullMessage = message + (weatherInfo.isEmpty() ? "" : " " + weatherInfo);
+
+        // Trimitem raspunsul catre client
+        Request response = new Request("Server", fullMessage, "", "");  // Trimitem raspunsul
         try {
-            this.out.writeObject(new Gson().toJson(response)); // Convertim în JSON și trimitem
+            this.out.writeObject(new Gson().toJson(response));  // Convertim in JSON si trimitem
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

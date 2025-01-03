@@ -1,6 +1,7 @@
 package org.example.data_source.dao;
 
 import org.example.data_source.model.UserEntity;
+import org.example.data_source.model.AppUsersRolesEntity;
 
 import jakarta.persistence.*;
 import java.util.List;
@@ -17,9 +18,10 @@ public class UserDao {
         this.entityManager = entityManagerFactory.createEntityManager();
     }
 
-    // Obține EntityManager-ul
-    public EntityManager getEntityManager() {
-        return this.entityManager;
+    public void saveAppUsersRoles(AppUsersRolesEntity appUsersRolesEntity) {
+        entityManager.getTransaction().begin();  // Începe tranzacția
+        entityManager.persist(appUsersRolesEntity);
+        entityManager.getTransaction().commit();  // Comite tranzacția
     }
 
     // Metoda pentru a salva un utilizator

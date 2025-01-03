@@ -13,7 +13,7 @@ public class RoleEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private int id;
 
     /* See Role enum class from config.util for the default roles */
     @Column(name = "name")

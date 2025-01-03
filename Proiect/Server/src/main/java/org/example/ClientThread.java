@@ -69,23 +69,17 @@ public class ClientThread extends Thread {
             newUser.setEmail(email);
             newUser.setPassword(password);
 
-            // Persist user in the database
+            // Save the new user
             userDao.save(newUser);
 
-            // Get the "USER" role from the database (ID = 1)
-            RoleEntity userRole = userDao.getEntityManager().find(RoleEntity.class, 1L);
+            // After saving the user, add the user to app_users_roles with role_id = 1 (for 'user' role)
+            AppUsersRolesEntity appUsersRolesEntity = new AppUsersRolesEntity();
+            appUsersRolesEntity.setAppUserId(newUser.getId());  // Ensure this ID is properly set after persisting the user
+            appUsersRolesEntity.setRoleId(1);  // 1 represents the 'user' role
 
-            if (userRole != null) {
-                // Create a new relationship in the app_users_roles table
-                AppUsersRolesEntity appUsersRoles = new AppUsersRolesEntity();
-                appUsersRoles.setAppUserId(newUser.getId());  // User ID
-                appUsersRoles.setRoleId(userRole.getId());    // Role ID (1 for "USER")
-
-                // Persist the relationship
-                userDao.getEntityManager().persist(appUsersRoles);
-            } else {
-                throw new IllegalStateException("Role with ID 1 (USER) not found in the database.");
-            }
+            // Save the relation in app_users_roles
+            System.out.println("Saving user-role relation: userId = " + newUser.getId() + ", roleId = 1");
+            userDao.saveAppUsersRoles(appUsersRolesEntity);
 
             sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!");
         }

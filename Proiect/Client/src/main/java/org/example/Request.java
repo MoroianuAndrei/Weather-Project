@@ -5,18 +5,22 @@ import com.google.gson.Gson;
 public class Request {
     private String username;
     private String message;
-    private String email;  // Adăugat
-    private String password;  // Adăugat
+    private String email;
+    private String password;
+    private double latitude;  // Adăugat
+    private double longitude; // Adăugat
 
     public Request() {
         // Constructor implicit
     }
 
-    public Request(String username, String message, String email, String password) {
+    public Request(String username, String message, String email, String password, double latitude, double longitude) {
         this.username = username;
         this.message = message;
         this.email = email;
         this.password = password;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
 
     public String getUsername() {
@@ -50,4 +54,21 @@ public class Request {
     public void setPassword(String password) {
         this.password = password;
     }
+
+    public double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(double latitude) {
+        this.latitude = latitude;
+    }
+
+    public double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(double longitude) {
+        this.longitude = longitude;
+    }
 }
+

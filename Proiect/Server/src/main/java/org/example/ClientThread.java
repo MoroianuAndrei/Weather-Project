@@ -1,8 +1,10 @@
 package org.example;
 
 import com.google.gson.Gson;
+import org.example.data_source.dao.LocationWeatherDao;
 import org.example.data_source.dao.UserDao;
 import org.example.data_source.model.AppUsersRolesEntity;
+import org.example.data_source.model.LocationWeatherEntity;
 import org.example.data_source.model.RoleEntity;
 import org.example.data_source.model.UserEntity;
 import org.example.network.Request;
@@ -11,6 +13,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.List;
 
 public class ClientThread extends Thread {
     private final Socket socket;
@@ -58,9 +61,11 @@ public class ClientThread extends Thread {
         if (user != null) {
             // Email exists, check password
             if (user.getPassword().equals(password)) {
-                sendResponse("Login successful. Welcome, " + user.getUsername() + "!");
+                // Login successful, get weather info based on latitude and longitude
+                String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
+                sendResponse("Login successful. Welcome, " + user.getUsername() + "!", weatherInfo); // Adăugăm și vremea
             } else {
-                sendResponse("Incorrect password. Please try again.");
+                sendResponse("Incorrect password. Please try again.", ""); // Fără informații meteo
             }
         } else {
             // Email does not exist, create a new user
@@ -81,14 +86,43 @@ public class ClientThread extends Thread {
             System.out.println("Saving user-role relation: userId = " + newUser.getId() + ", roleId = 1");
             userDao.saveAppUsersRoles(appUsersRolesEntity);
 
-            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!");
+            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!", ""); // Fără informații meteo
         }
     }
 
-    private void sendResponse(String message) {
-        Request response = new Request("Server", message, null, null);
+    // Simulate fetching weather info based on latitude and longitude
+    private String getWeatherInfo(double latitude, double longitude) {
+        // Obține toate locațiile din baza de date
+        LocationWeatherDao locationWeatherDao = new LocationWeatherDao(); // Sau injectează DAO-ul, în funcție de arhitectura ta
+        List<LocationWeatherEntity> locations = locationWeatherDao.findAll();
+
+        // Variabile pentru locația cea mai apropiată
+        LocationWeatherEntity closestLocation = null;
+        double minDistance = Double.MAX_VALUE;
+
+        // Căutăm locația cea mai apropiată
+        for (LocationWeatherEntity location : locations) {
+            double distance = GeoUtils.calculateDistance(latitude, longitude, location.getLatitude(), location.getLongitude());
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestLocation = location;
+            }
+        }
+
+        // Dacă am găsit locația cea mai apropiată
+        if (closestLocation != null) {
+            return String.format("Weather for city %s: Temperature = %s, Condition = %s",
+                    closestLocation.getCity(), closestLocation.getTemperature(), closestLocation.getCondition());
+        } else {
+            return "Weather information not available.";
+        }
+    }
+
+    private void sendResponse(String message, String weatherInfo) {
+        String fullMessage = message + " " + weatherInfo; // Concatenăm mesajul cu informațiile meteo
+        Request response = new Request("Server", fullMessage, "", ""); // Trimitem răspunsul
         try {
-            this.out.writeObject(new Gson().toJson(response));
+            this.out.writeObject(new Gson().toJson(response)); // Convertim în JSON și trimitem
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -30,10 +30,16 @@ public class Client {
                     String email = scanner.nextLine();
                     System.out.println("Insert your password: ");
                     String password = scanner.nextLine();
-                    System.out.println("Insert your message: ");
-                    String message = scanner.nextLine();
+                    System.out.println("Insert your latitude: ");
+                    double latitude = scanner.nextDouble();
+                    System.out.println("Insert your longitude: ");
+                    double longitude = scanner.nextDouble();
+                    scanner.nextLine();  // Clear the buffer
 
-                    Request request = new Request(username, message, email, password);
+                    // Setăm un mesaj implicit, dacă este necesar
+                    String message = "Default Message";
+
+                    Request request = new Request(username, message, email, password, latitude, longitude);
                     String requestJson = new Gson().toJson(request);
 
                     try {

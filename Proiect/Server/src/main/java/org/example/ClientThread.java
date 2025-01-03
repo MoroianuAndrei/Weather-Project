@@ -1,6 +1,10 @@
 package org.example;
 
 import com.google.gson.Gson;
+import org.example.data_source.dao.UserDao;
+import org.example.data_source.model.Role;
+import org.example.data_source.model.RoleEntity;
+import org.example.data_source.model.UserEntity;
 import org.example.network.Request;
 
 import java.io.IOException;
@@ -12,9 +16,11 @@ public class ClientThread extends Thread {
     private final Socket socket;
     private final ObjectInputStream in;
     private final ObjectOutputStream out;
+    private final UserDao userDao;
 
     public ClientThread(Socket socket) {
         this.socket = socket;
+        this.userDao = new UserDao("postgresPersistence"); // Înlocuiți cu unitatea de persistență utilizată
         try {
             this.in = new ObjectInputStream(socket.getInputStream());
             this.out = new ObjectOutputStream(socket.getOutputStream());
@@ -30,11 +36,9 @@ public class ClientThread extends Thread {
                 String message = (String) this.in.readObject();
                 Request request = new Gson().fromJson(message, Request.class);
 
-                // Exemplu: Afișează emailul și parola
                 System.out.println("Received email: " + request.getEmail());
                 System.out.println("Received password: " + request.getPassword());
 
-                // Procesăm cererea
                 execute(request);
             }
         } catch (IOException | ClassNotFoundException e) {
@@ -43,16 +47,40 @@ public class ClientThread extends Thread {
     }
 
     private void execute(Request request) {
-        String clientMessage = request.getMessage();
-        Request response;
+        String email = request.getEmail();
+        String password = request.getPassword();
 
-        // Exemplu simplu de răspuns
-        if ("hello".equalsIgnoreCase(clientMessage)) {
-            response = new Request("Server", "Hello, " + request.getUsername(), null, null);
+        UserEntity user = userDao.findAll().stream()
+                .filter(u -> u.getEmail().equals(email))
+                .findFirst()
+                .orElse(null);
+
+        if (user != null) {
+            // Email exists, check password
+            if (user.getPassword().equals(password)) {
+                sendResponse("Login successful. Welcome, " + user.getUsername() + "!");
+            } else {
+                sendResponse("Incorrect password. Please try again.");
+            }
         } else {
-            response = new Request("Server", "Message received: " + clientMessage, null, null);
-        }
+            // Email does not exist, create a new user
+            UserEntity newUser = new UserEntity();
+            newUser.setUsername(request.getUsername());
+            newUser.setEmail(email);
+            newUser.setPassword(password);
 
+            // Set default role
+            RoleEntity roleEntity = new RoleEntity();
+            roleEntity.setRole(Role.USER);
+            newUser.addRole(roleEntity);
+
+            userDao.save(newUser);
+            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!");
+        }
+    }
+
+    private void sendResponse(String message) {
+        Request response = new Request("Server", message, null, null);
         try {
             this.out.writeObject(new Gson().toJson(response));
         } catch (IOException e) {

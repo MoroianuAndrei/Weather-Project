@@ -7,8 +7,8 @@
         <properties>
             <property name="eclipselink.jdbc.url" value="jdbc:postgresql://localhost:5432/mip_weather"/>
             <property name="eclipselink.jdbc.driver" value="org.postgresql.Driver"/>
-            <property name="eclipselink.jdbc.user" value="insert_your_username"/>
-            <property name="eclipselink.jdbc.password" value="insert_your_password"/>
+            <property name="eclipselink.jdbc.user" value="postgres"/>
+            <property name="eclipselink.jdbc.password" value="1q2w3e"/>
         </properties>
     </persistence-unit>
     <persistence-unit name="h2Persistence">

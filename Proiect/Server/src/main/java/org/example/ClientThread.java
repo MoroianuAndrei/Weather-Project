@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 public class ClientThread extends Thread {
@@ -54,6 +56,9 @@ public class ClientThread extends Thread {
         String email = request.getEmail();
         String password = request.getPassword();
 
+        // Aplica hash-ul pe parola
+        String hashedPassword = hashPassword(password);
+
         // Verificam daca utilizatorul exista
         UserEntity user = userDao.findAll().stream()
                 .filter(u -> u.getEmail().equals(email))
@@ -62,7 +67,7 @@ public class ClientThread extends Thread {
 
         if (user != null) {
             // Email exista, verificam parola
-            if (user.getPassword().equals(password)) {
+            if (user.getPassword().equals(hashedPassword)) {
                 // Login reusit, trimitem mesajul de bun venit
                 sendResponse("Login successful. Welcome, " + user.getUsername() + "!", "");
 
@@ -77,7 +82,7 @@ public class ClientThread extends Thread {
             UserEntity newUser = new UserEntity();
             newUser.setUsername(request.getUsername());
             newUser.setEmail(email);
-            newUser.setPassword(password);
+            newUser.setPassword(hashedPassword);  // Salvam parola hashuita
 
             // Salvam noul utilizator
             userDao.save(newUser);
@@ -96,6 +101,21 @@ public class ClientThread extends Thread {
             // Trimitem mesajul de vremea
             String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
             sendResponse("", weatherInfo); // Trimitem doar informatiile meteo
+        }
+    }
+
+    // Functie pentru a crea hash-ul parolei
+    private String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(password.getBytes());
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Error hashing password", e);
         }
     }
 

@@ -2,7 +2,7 @@ package org.example;
 
 import com.google.gson.Gson;
 import org.example.data_source.dao.UserDao;
-import org.example.data_source.model.Role;
+import org.example.data_source.model.AppUsersRolesEntity;
 import org.example.data_source.model.RoleEntity;
 import org.example.data_source.model.UserEntity;
 import org.example.network.Request;
@@ -69,12 +69,24 @@ public class ClientThread extends Thread {
             newUser.setEmail(email);
             newUser.setPassword(password);
 
-            // Set default role
-            RoleEntity roleEntity = new RoleEntity();
-            roleEntity.setRole(Role.USER);
-            newUser.addRole(roleEntity);
-
+            // Persist user in the database
             userDao.save(newUser);
+
+            // Get the "USER" role from the database (ID = 1)
+            RoleEntity userRole = userDao.getEntityManager().find(RoleEntity.class, 1L);
+
+            if (userRole != null) {
+                // Create a new relationship in the app_users_roles table
+                AppUsersRolesEntity appUsersRoles = new AppUsersRolesEntity();
+                appUsersRoles.setAppUserId(newUser.getId());  // User ID
+                appUsersRoles.setRoleId(userRole.getId());    // Role ID (1 for "USER")
+
+                // Persist the relationship
+                userDao.getEntityManager().persist(appUsersRoles);
+            } else {
+                throw new IllegalStateException("Role with ID 1 (USER) not found in the database.");
+            }
+
             sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!");
         }
     }

@@ -11,8 +11,10 @@ import java.util.List;
 @Table(name="app_user")
 public class UserEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
+    @SequenceGenerator(name = "user_seq", sequenceName = "user_sequence", allocationSize = 1)
     private Long id;
+
 
     @Basic
     @Column(name = "username")
@@ -29,13 +31,12 @@ public class UserEntity {
     @Transient
     private String repeatPassword;
 
-    @ManyToMany(fetch = FetchType.EAGER)
+    @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)  // Adăugarea cascade PERSIST
     @JoinTable(
             name = "app_users_roles",
-            joinColumns = @JoinColumn(
-                    name = "app_user_id", referencedColumnName = "id"),
-            inverseJoinColumns = @JoinColumn(
-                    name = "role_id", referencedColumnName = "id"))
+            joinColumns = @JoinColumn(name = "app_user_id", referencedColumnName = "id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id", referencedColumnName = "id")
+    )
     private List<RoleEntity> roles = new ArrayList<>();
 
     public void addRole(RoleEntity role) {

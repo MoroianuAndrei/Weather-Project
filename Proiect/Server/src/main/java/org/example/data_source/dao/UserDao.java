@@ -1,36 +1,46 @@
 package org.example.data_source.dao;
 
-import jakarta.persistence.TypedQuery;
-import org.example.data_source.Connection;
 import org.example.data_source.model.UserEntity;
 
+import jakarta.persistence.*;
 import java.util.List;
 
 public class UserDao {
-    private Connection connection = new Connection();
 
-    public UserDao(String persistenceUnit) {
-        this.connection.initTransaction(persistenceUnit);
+    private EntityManagerFactory entityManagerFactory;
+    private EntityManager entityManager;
+
+    // Constructorul clasei
+    public UserDao(String persistenceUnitName) {
+        // Inițializează EntityManagerFactory
+        this.entityManagerFactory = Persistence.createEntityManagerFactory(persistenceUnitName);
+        this.entityManager = entityManagerFactory.createEntityManager();
     }
 
-    /**
-     * Finds all UserEntity records in the database.
-     *
-     * @return a list of UserEntity
-     */
-// findAll method
-    public List<UserEntity> findAll() {
-        return connection.executeReturningTransaction(entityManager -> {
-            TypedQuery<UserEntity> query = entityManager.createQuery("SELECT e FROM UserEntity e", UserEntity.class);
-            return query.getResultList();
-        });
+    // Obține EntityManager-ul
+    public EntityManager getEntityManager() {
+        return this.entityManager;
     }
-    /**
-     * Saves a new UserEntity to the database.
-     *
-     * @param user the user to save
-     */
+
+    // Metoda pentru a salva un utilizator
     public void save(UserEntity user) {
-        connection.executeVoidTransaction(entityManager -> entityManager.persist(user));
+        entityManager.getTransaction().begin();
+        entityManager.persist(user);
+        entityManager.getTransaction().commit();
+    }
+
+    // Metoda pentru a obține toți utilizatorii
+    public List<UserEntity> findAll() {
+        return entityManager.createQuery("SELECT u FROM UserEntity u", UserEntity.class).getResultList();
+    }
+
+    // Închide EntityManager-ul la finalul utilizării
+    public void close() {
+        if (entityManager != null) {
+            entityManager.close();
+        }
+        if (entityManagerFactory != null) {
+            entityManagerFactory.close();
+        }
     }
 }

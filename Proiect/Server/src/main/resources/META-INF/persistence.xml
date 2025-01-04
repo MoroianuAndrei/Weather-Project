@@ -6,6 +6,8 @@
         <class>org.example.data_source.model.RoleEntity</class>
         <class>org.example.data_source.model.AppUsersRolesEntity</class>
         <class>org.example.data_source.model.LocationWeatherEntity</class>
+        <class>org.example.data_source.model.LocationEntity</class>
+        <class>org.example.data_source.model.WeatherEntity</class>
         <properties>
             <property name="eclipselink.jdbc.url" value="jdbc:postgresql://localhost:5432/mip_weather"/>
             <property name="eclipselink.jdbc.driver" value="org.postgresql.Driver"/>
@@ -19,6 +21,8 @@
         <class>org.example.data_source.model.RoleEntity</class>
         <class>org.example.data_source.model.AppUsersRolesEntity</class>
         <class>org.example.data_source.model.LocationWeatherEntity</class>
+        <class>org.example.data_source.model.LocationEntity</class>
+        <class>org.example.data_source.model.WeatherEntity</class>
         <properties>
             <property name="jakarta.persistence.jdbc.url" value="jdbc:h2:mem:mip_weather"/>
             <property name="jakarta.persistence.jdbc.driver" value="org.h2.Driver"/>

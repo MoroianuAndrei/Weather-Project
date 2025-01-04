@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
+import java.util.Date;
 
 @Data
 @Getter @Setter
@@ -23,7 +23,7 @@ public class WeatherEntity {
     private LocationEntity location;  // Se face legătura cu LocationEntity prin id_loc
 
     @Column(name = "date")
-    private LocalDate date;
+    private Date date;
 
     @Column(name = "temperature")
     private String temperature;

@@ -21,6 +21,21 @@ public class WeatherDao {
                 .getResultList();
     }
 
+    public void addWeather(WeatherEntity weather) {
+        EntityTransaction transaction = entityManager.getTransaction();
+        try {
+            transaction.begin();
+            entityManager.persist(weather);  // Adaugă informațiile meteo în baza de date
+            entityManager.flush();  // Forțează salvarea imediată
+            transaction.commit();
+        } catch (RuntimeException e) {
+            if (transaction.isActive()) {
+                transaction.rollback();  // Revocă tranzacția în caz de eroare
+            }
+            throw e;
+        }
+    }
+
     public WeatherEntity findWeatherByLocationAndDate(int locationId, String date) {
         return entityManager.createQuery("SELECT w FROM WeatherEntity w WHERE w.location.idLoc = :locationId AND w.date = :date", WeatherEntity.class)
                 .setParameter("locationId", locationId)

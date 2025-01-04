@@ -43,6 +43,13 @@ public class UserDao {
         return query.getResultList();
     }
 
+    public UserEntity findByEmail(String email) {
+        return findAll().stream()
+                .filter(user -> user.getEmail().equals(email))
+                .findFirst()
+                .orElse(null);
+    }
+
     // Închide EntityManager-ul la finalul utilizării
     public void close() {
         if (entityManager != null) {

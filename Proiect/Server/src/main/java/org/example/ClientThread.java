@@ -1,6 +1,7 @@
 package org.example;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.example.data_source.dao.LocationDao;
 import org.example.data_source.dao.LocationWeatherDao;
 import org.example.data_source.dao.UserDao;
@@ -14,9 +15,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDate;
-import java.util.Collections;
-import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 
 public class ClientThread extends Thread {
@@ -24,12 +23,14 @@ public class ClientThread extends Thread {
     private final ObjectInputStream in;
     private final ObjectOutputStream out;
     private final UserDao userDao;
-    private WeatherDao weatherDao = new WeatherDao();  // Instanțierea WeatherDao
-    private LocationDao locationDao = new LocationDao();  // Instanțierea LocationDao
+    private final Gson gson;
+    private final WeatherDao weatherDao = new WeatherDao();
+    private final LocationDao locationDao = new LocationDao();
 
     public ClientThread(Socket socket) {
         this.socket = socket;
-        this.userDao = new UserDao("postgresPersistence"); // Înlocuiți cu unitatea de persistență utilizată
+        this.userDao = new UserDao("postgresPersistence");
+        this.gson = new Gson();  // Nu mai este nevoie de LocalDateAdapter
         try {
             this.in = new ObjectInputStream(socket.getInputStream());
             this.out = new ObjectOutputStream(socket.getOutputStream());
@@ -42,11 +43,9 @@ public class ClientThread extends Thread {
     public void run() {
         try {
             while (true) {
-                // Citim mesajul primit de la client
                 String message = (String) this.in.readObject();
-                Request request = new Gson().fromJson(message, Request.class);
+                Request request = gson.fromJson(message, Request.class);
 
-                // Afisam informatiile primite de la client
                 System.out.println("Received email: " + request.getEmail());
                 System.out.println("Received password: " + request.getPassword());
 
@@ -61,136 +60,157 @@ public class ClientThread extends Thread {
         String email = request.getEmail();
         String password = request.getPassword();
 
-        // Aplica hash-ul pe parola
-        String hashedPassword = hashPassword(password);
+        System.out.println("[Server] Received request from email: " + email);
 
-        // Verificăm dacă utilizatorul există
-        UserEntity user = userDao.findAll().stream()
-                .filter(u -> u.getEmail().equals(email))
-                .findFirst()
-                .orElse(null);
+        String hashedPassword = hashPassword(password);
+        UserEntity user = userDao.findByEmail(email);
 
         if (user != null) {
-            // Email există, verificăm parola hashuită
+            System.out.println("[Server] User found: " + user.getUsername());
             if (user.getPassword().equals(hashedPassword)) {
-                // Verificăm dacă utilizatorul are rolul de admin
+                System.out.println("[Server] Password correct for user: " + user.getUsername());
                 boolean isAdmin = user.getRoles().stream()
-                        .anyMatch(role -> role.getId() == 2); // 2 este id-ul pentru "admin"
+                        .anyMatch(role -> role.getId() == 2);
 
                 if (isAdmin) {
-                    // Dacă este admin, trimitem mesajul pentru admin
-                    sendResponse("Hello, you are ADMIN", "");
+                    System.out.println("[Server] User is ADMIN.");
+                    // Trimitere mesaj pentru a întreba ce acțiune dorește admin-ul să efectueze
+                    sendResponse("Admin Actions", "Please choose an action: add_location or add_weather.", "");
+                    // Așteptă un nou request pentru acțiune
+                    waitForAdminAction();
                 } else {
-                    // Dacă este user, continuăm logica normală
-                    if (request.getLatitude() == 0.0 && request.getLongitude() == 0.0) {
-                        // Login reușit, trimitem mesajul de bun venit
-                        sendResponse("Login successful. Welcome, " + user.getUsername() + "!", "");
-                    } else {
-                        // Căutăm locația cea mai apropiată pe baza coordonatelor
-                        LocationEntity closestLocation = findClosestLocation(request.getLatitude(), request.getLongitude());
-                        if (closestLocation != null) {
-                            // Căutăm vremea pentru locația respectivă pentru zilele următoare
-                            List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(closestLocation.getIdLoc());
-
-                            // Sortăm lista de vreme în funcție de dată (în ordine crescătoare)
-                            Collections.sort(weatherList, new Comparator<WeatherEntity>() {
-                                @Override
-                                public int compare(WeatherEntity w1, WeatherEntity w2) {
-                                    // Comparăm datele din cele două obiecte WeatherEntity
-                                    return w1.getDate().compareTo(w2.getDate());
-                                }
-                            });
-
-                            // Verificăm dacă există vreme pentru 3 zile
-                            StringBuilder weatherInfo = new StringBuilder();
-                            weatherInfo.append("Server: ").append(closestLocation.getCity()).append("\n"); // Adăugăm orașul
-                            for (WeatherEntity weather : weatherList) {
-                                // Afișăm doar vremea pentru ziua curentă și următoarele 2 zile
-                                if (isWeatherForNextDays(weather.getDate())) {
-                                    weatherInfo.append("Date: ").append(weather.getDate())
-                                            .append(" | Temp: ").append(weather.getTemperature())
-                                            .append(" | Condition: ").append(weather.getCondition())
-                                            .append("\n");
-                                }
-                            }
-
-                            if (weatherInfo.length() > 0) {
-                                sendResponse("", weatherInfo.toString());
-                            } else {
-                                sendResponse("No weather data available for the next 3 days.", "");
-                            }
-                        } else {
-                            sendResponse("Location not found for the given coordinates.", "");
-                        }
-                    }
+                    System.out.println("[Server] User is regular.");
+                    handleUserActions(request, user);
                 }
             } else {
-                // Parolă incorectă, trimitem mesaj și oprim clientul
-                sendResponse("Incorrect password.", "");
-                closeConnection(); // Închidem conexiunea pentru client
+                System.out.println("[Server] Incorrect password for email: " + email);
+                sendResponse("Error", "Incorrect password.", "");
+                closeConnection();
             }
         } else {
-            // Emailul nu există, creăm un utilizator nou
-            UserEntity newUser = new UserEntity();
-            newUser.setUsername(request.getUsername());
-            newUser.setEmail(email);
-            newUser.setPassword(hashedPassword);  // Salvăm parola hashuită
-
-            // Salvăm noul utilizator
-            userDao.save(newUser);
-
-            // Adăugăm utilizatorul în tabelul de relații user-role
-            AppUsersRolesEntity appUsersRolesEntity = new AppUsersRolesEntity();
-            appUsersRolesEntity.setAppUserId(newUser.getId());  // Asigurăm că ID-ul este corect
-            appUsersRolesEntity.setRoleId(1);  // 1 reprezintă rolul de 'user'
-
-            // Salvăm relația în tabelul user-role
-            userDao.saveAppUsersRoles(appUsersRolesEntity);
-
-            // Trimitem mesaj de creare cont
-            sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!", "");
+            System.out.println("[Server] User not found. Creating new user with email: " + email);
+            createUser(request, email, hashedPassword);
         }
     }
 
-    // Verifică dacă vremea este pentru zilele curente și următoarele două zile
-    private boolean isWeatherForNextDays(LocalDate requestedDate) {
-        LocalDate currentDate = LocalDate.now();
-        return !requestedDate.isBefore(currentDate) && requestedDate.isBefore(currentDate.plusDays(3));
+    private void waitForAdminAction() {
+        // Așteaptă un nou request de la client (pentru a alege acțiunea)
+        try {
+            // Aici trebuie să așteptăm un alt request care conține acțiunea admin-ului
+            String serverData = (String) this.in.readObject();
+            Request newRequest = gson.fromJson(serverData, Request.class);
+
+            // Verifică acțiunea aleasă de admin
+            if ("add_location".equals(newRequest.getAction())) {
+                handleAddLocation(newRequest);
+            } else if ("add_weather".equals(newRequest.getAction())) {
+                handleAddWeather(newRequest);
+            } else {
+                sendResponse("Error", "Unknown action. Please choose either 'add_location' or 'add_weather'.", "");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendResponse("Error", "Failed to process admin action.", "");
+        }
     }
 
-    private LocationEntity findClosestLocation(double userLatitude, double userLongitude) {
-        // Obținem toate locațiile din baza de date
-        LocationDao locationDao = new LocationDao();
-        List<LocationEntity> locations = locationDao.findAll();  // Aici poți să folosești metoda care returnează toate locațiile
+    private void handleAddLocation(Request request) {
+        LocationEntity newLocation = new LocationEntity();
+        newLocation.setCity(request.getCity());
+        newLocation.setLatitude(request.getLatitude());
+        newLocation.setLongitude(request.getLongitude());
+        System.out.println("Locatie noua: " + newLocation.getCity() + " " + newLocation.getLatitude() + " " + newLocation.getLongitude());
+        locationDao.addLocation(newLocation);
+        sendResponse("Success", "New location added successfully!", "");
+    }
 
-        // Variabile pentru locația cea mai apropiată
-        LocationEntity closestLocation = null;
-        double minDistance = Double.MAX_VALUE;
+    private void handleAddWeather(Request request) {
+        LocationEntity location = locationDao.findLocationByCity(request.getCity());
 
-        // Căutăm locația cea mai apropiată
-        for (LocationEntity location : locations) {
-            // Calculăm distanța între locația utilizatorului și fiecare locație
-            double distance = GeoUtils.calculateDistance(userLatitude, userLongitude, location.getLatitude(), location.getLongitude());
+        // Dacă locația nu există, o adăugăm
+        if (location == null) {
+            location = new LocationEntity();
+            location.setCity(request.getCity());
+            location.setLatitude(request.getLatitude());
+            location.setLongitude(request.getLongitude());
+            locationDao.addLocation(location);  // Adaugă locația
+        }
 
-            // Dacă distanța calculată este mai mică decât distanța minimă, actualizăm locația cea mai apropiată
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestLocation = location;
+        // Creăm entitatea Weather pentru a o salva
+        WeatherEntity weatherEntity = new WeatherEntity();
+        weatherEntity.setLocation(location);
+        weatherEntity.setDate(new Date(request.getDate().getTime())); // Conversia din LocalDate în Date
+        weatherEntity.setTemperature(request.getTemperature());
+        weatherEntity.setCondition(request.getCondition());
+
+        System.out.println("Vreme noua: " + weatherEntity.getLocation().getCity() + " " + weatherEntity.getDate() + " " + weatherEntity.getTemperature() + " " + weatherEntity.getCondition());
+
+        // Salvează vremea
+        weatherDao.addWeather(weatherEntity);
+        sendResponse("Success", "Weather data added successfully!", "");
+    }
+
+    private void handleUserActions(Request request, UserEntity user) {
+        if (request.getLatitude() == 0.0 && request.getLongitude() == 0.0) {
+            sendResponse("Success", "Login successful. Welcome, " + user.getUsername() + "!", "");
+        } else if("verifystatus".equals(request.getAction())) {
+            LocationEntity location = locationDao.findLocationByCoordinates(request.getLatitude(), request.getLongitude());
+            if (location != null) {
+                List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(location.getIdLoc());
+                StringBuilder weatherInfo = new StringBuilder("Server: ").append(location.getCity()).append("\n");
+
+                for (WeatherEntity weather : weatherList) {
+                    if (isWeatherForNextDays(weather.getDate())) {
+                        weatherInfo.append("Date: ").append(weather.getDate())
+                                .append(" | Temp: ").append(weather.getTemperature())
+                                .append(" | Condition: ").append(weather.getCondition())
+                                .append("\n");
+                    }
+                }
+
+                if (weatherInfo.length() > 0) {
+                    sendResponse("Success", "", weatherInfo.toString());
+                } else {
+                    sendResponse("Info", "No weather data available for the next 3 days.", "");
+                }
+            } else {
+                sendResponse("Error", "Location not found for the given coordinates.", "");
             }
         }
+    }
 
-        return closestLocation;
+    private void createUser(Request request, String email, String hashedPassword) {
+        UserEntity newUser = new UserEntity();
+        newUser.setUsername(request.getUsername());
+        newUser.setEmail(email);
+        newUser.setPassword(hashedPassword);
+
+        userDao.save(newUser);
+
+        AppUsersRolesEntity appUsersRolesEntity = new AppUsersRolesEntity();
+        appUsersRolesEntity.setAppUserId(newUser.getId());
+        appUsersRolesEntity.setRoleId(1);
+
+        userDao.saveAppUsersRoles(appUsersRolesEntity);
+
+        sendResponse("Success", "Account created successfully. Welcome, " + request.getUsername() + "!", "");
+    }
+
+    private boolean isWeatherForNextDays(Date requestedDate) {
+        Date currentDate = new Date();
+        return requestedDate.after(new Date(currentDate.getTime() - 86400000)) && requestedDate.before(new Date(currentDate.getTime() + 259200000));
     }
 
     private void closeConnection() {
         try {
-            socket.close();
+            if (!socket.isClosed()) {
+                socket.close();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Functie pentru a crea hash-ul parolei
     private String hashPassword(String password) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -205,42 +225,11 @@ public class ClientThread extends Thread {
         }
     }
 
-    // Simuleaza obtinerea informatiilor meteo pe baza latitudinii si longitudinii
-    private String getWeatherInfo(double latitude, double longitude) {
-        // Obtinem toate locatiile din baza de date
-        LocationWeatherDao locationWeatherDao = new LocationWeatherDao();
-        List<LocationWeatherEntity> locations = locationWeatherDao.findAll();
-
-        // Variabile pentru locația cea mai apropiată
-        LocationWeatherEntity closestLocation = null;
-        double minDistance = Double.MAX_VALUE;
-
-        // Căutăm locația cea mai apropiată
-        for (LocationWeatherEntity location : locations) {
-            double distance = GeoUtils.calculateDistance(latitude, longitude, location.getLatitude(), location.getLongitude());
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestLocation = location;
-            }
-        }
-
-        // Dacă am găsit locația cea mai apropiată
-        if (closestLocation != null) {
-            return String.format("Weather for city %s: Temperature = %s, Condition = %s",
-                    closestLocation.getCity(), closestLocation.getTemperature(), closestLocation.getCondition());
-        } else {
-            return "Weather information not available.";
-        }
-    }
-
-    private void sendResponse(String message, String weatherInfo) {
-        // Formam mesajul complet
+    private void sendResponse(String status, String message, String weatherInfo) {
         String fullMessage = message + (weatherInfo.isEmpty() ? "" : " " + weatherInfo);
-
-        // Trimitem raspunsul catre client
-        Request response = new Request("Server", fullMessage, "", "");  // Trimitem raspunsul
+        Request response = new Request(status, fullMessage, "", "");
         try {
-            this.out.writeObject(new Gson().toJson(response));  // Convertim in JSON si trimitem
+            this.out.writeObject(gson.toJson(response));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

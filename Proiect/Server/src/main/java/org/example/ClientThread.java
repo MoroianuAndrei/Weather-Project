@@ -66,41 +66,49 @@ public class ClientThread extends Thread {
                 .orElse(null);
 
         if (user != null) {
-            // Email exista, verificam parola
+            // Email există, verificăm parola hashuită
             if (user.getPassword().equals(hashedPassword)) {
-                // Login reusit, trimitem mesajul de bun venit
-                sendResponse("Login successful. Welcome, " + user.getUsername() + "!", "");
-
-                // Trimitem mesajul de vremea
-                String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
-                sendResponse("", weatherInfo); // Trimitem doar informatiile meteo
+                if (request.getLatitude() == 0.0 && request.getLongitude() == 0.0) {
+                    // Login reușit, trimitem mesajul de bun venit
+                    sendResponse("Login successful. Welcome, " + user.getUsername() + "!", "");
+                } else {
+                    // Gestionăm cererea de vreme pe baza coordonatelor
+                    String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
+                    sendResponse("", weatherInfo); // Trimitem doar informațiile meteo
+                }
             } else {
-                sendResponse("Incorrect password. Please try again.", ""); // Fara informatii meteo
+                // Parolă incorectă, trimitem mesaj și oprim clientul
+                sendResponse("Incorrect password.", "");
+                closeConnection(); // Închidem conexiunea pentru client
             }
         } else {
-            // Emailul nu exista, creem un utilizator nou
+            // Emailul nu există, creăm un utilizator nou
             UserEntity newUser = new UserEntity();
             newUser.setUsername(request.getUsername());
             newUser.setEmail(email);
-            newUser.setPassword(hashedPassword);  // Salvam parola hashuita
+            newUser.setPassword(hashedPassword);  // Salvăm parola hashuită
 
-            // Salvam noul utilizator
+            // Salvăm noul utilizator
             userDao.save(newUser);
 
-            // Adaugam utilizatorul in tabelul de relatii user-role
+            // Adăugăm utilizatorul în tabelul de relații user-role
             AppUsersRolesEntity appUsersRolesEntity = new AppUsersRolesEntity();
-            appUsersRolesEntity.setAppUserId(newUser.getId());  // Asiguram ca ID-ul este corect
-            appUsersRolesEntity.setRoleId(1);  // 1 reprezinta rolul de 'user'
+            appUsersRolesEntity.setAppUserId(newUser.getId());  // Asigurăm că ID-ul este corect
+            appUsersRolesEntity.setRoleId(1);  // 1 reprezintă rolul de 'user'
 
-            // Salvam relatia in tabela user-role
+            // Salvăm relația în tabelul user-role
             userDao.saveAppUsersRoles(appUsersRolesEntity);
 
             // Trimitem mesaj de creare cont
             sendResponse("Account created successfully. Welcome, " + request.getUsername() + "!", "");
+        }
+    }
 
-            // Trimitem mesajul de vremea
-            String weatherInfo = getWeatherInfo(request.getLatitude(), request.getLongitude());
-            sendResponse("", weatherInfo); // Trimitem doar informatiile meteo
+    private void closeConnection() {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

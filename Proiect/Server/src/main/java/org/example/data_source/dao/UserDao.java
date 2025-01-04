@@ -36,6 +36,13 @@ public class UserDao {
         return entityManager.createQuery("SELECT u FROM UserEntity u", UserEntity.class).getResultList();
     }
 
+    public List<AppUsersRolesEntity> findAllRoles() {
+        // Găsim toate relațiile user-role din baza de date
+        TypedQuery<AppUsersRolesEntity> query = entityManager.createQuery(
+                "SELECT r FROM AppUsersRolesEntity r", AppUsersRolesEntity.class);
+        return query.getResultList();
+    }
+
     // Închide EntityManager-ul la finalul utilizării
     public void close() {
         if (entityManager != null) {

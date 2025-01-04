@@ -31,6 +31,20 @@ public class LocationWeatherDao {
                 .getResultList();
     }
 
+    public void update(LocationWeatherEntity locationWeatherEntity) {
+        EntityTransaction transaction = entityManager.getTransaction();
+        try {
+            transaction.begin();
+            entityManager.merge(locationWeatherEntity); // Actualizăm entitatea
+            transaction.commit();
+        } catch (Exception e) {
+            if (transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw new RuntimeException("Failed to update location weather", e);
+        }
+    }
+
     public void close() {
         // Închide EntityManager și EntityManagerFactory
         if (entityManager != null) {

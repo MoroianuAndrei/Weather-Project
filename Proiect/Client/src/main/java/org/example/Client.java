@@ -14,44 +14,42 @@ public class Client {
     private ObjectInputStream in;
 
     public void start() {
-        try {
-            Socket socket = new Socket("localhost", PORT);
+        try (Socket socket = new Socket("localhost", PORT)) {
             this.out = new ObjectOutputStream(socket.getOutputStream());
             this.in = new ObjectInputStream(socket.getInputStream());
 
-            // Trimitem date către server
-            new Thread(() -> {
-                Scanner scanner = new Scanner(System.in);
+            Scanner scanner = new Scanner(System.in);
 
-                // Introducere username, email și parolă
-                System.out.println("Insert your username: ");
-                String username = scanner.nextLine();
-                System.out.println("Insert your email: ");
-                String email = scanner.nextLine();
-                System.out.println("Insert your password: ");
-                String password = scanner.nextLine();
+            // Introducere username, email și parolă
+            System.out.println("Insert your username: ");
+            String username = scanner.nextLine();
+            System.out.println("Insert your email: ");
+            String email = scanner.nextLine();
+            System.out.println("Insert your password: ");
+            String password = scanner.nextLine();
 
-                // Creăm obiectul Request
-                Request request = new Request(username, "", email, password, 0.0, 0.0);
-                String requestJson = new Gson().toJson(request);
+            // Creăm obiectul Request
+            Request request = new Request(username, "", email, password, 0.0, 0.0);
+            String requestJson = new Gson().toJson(request);
 
-                try {
-                    this.out.writeObject(requestJson);  // Trimitem cererea
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+            // Trimitem cererea de login
+            this.out.writeObject(requestJson);
 
-                // Primim răspunsul de la server
-                try {
-                    String serverData = (String) this.in.readObject();
-                    Request response = new Gson().fromJson(serverData, Request.class);
+            // Primim răspunsul de la server
+            String serverData = (String) this.in.readObject();
+            Request response = new Gson().fromJson(serverData, Request.class);
 
-                    // Afișăm mesajul de succes al logării
-                    System.out.println("Server: " + response.getMessage());
-                } catch (IOException | ClassNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
+            // Verificăm dacă logarea a fost reușită
+            if (response.getMessage().contains("Incorrect password")) {
+                System.out.println("Server: " + response.getMessage());
+                System.out.println("Connection closing due to incorrect password.");
+                return; // Oprire execuție
+            }
 
+            // Afișăm mesajul de succes al logării
+            System.out.println("Server: " + response.getMessage());
+
+            while (true) {
                 // Introducem coordonatele
                 System.out.println("Insert your latitude: ");
                 double latitude = scanner.nextDouble();
@@ -61,24 +59,15 @@ public class Client {
                 // Trimitem coordonatele
                 request.setLatitude(latitude);
                 request.setLongitude(longitude);
-
-                try {
-                    this.out.writeObject(new Gson().toJson(request));  // Trimitem coordonatele
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+                this.out.writeObject(new Gson().toJson(request));
 
                 // Primim informațiile meteo
-                try {
-                    String serverData = (String) this.in.readObject();
-                    Request response2 = new Gson().fromJson(serverData, Request.class);
-                    System.out.println("Server: " + response2.getMessage());
-                } catch (IOException | ClassNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+                serverData = (String) this.in.readObject();
+                Request response2 = new Gson().fromJson(serverData, Request.class);
+                System.out.println("Server: " + response2.getMessage());
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new RuntimeException("Error during communication with the server", e);
         }
     }
 }

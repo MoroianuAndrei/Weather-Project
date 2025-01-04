@@ -153,11 +153,11 @@ public class ClientThread extends Thread {
     private void handleUserActions(Request request, UserEntity user) {
         if (request.getLatitude() == 0.0 && request.getLongitude() == 0.0) {
             sendResponse("Success", "Login successful. Welcome, " + user.getUsername() + "!", "");
-        } else if("verifystatus".equals(request.getAction())) {
-            LocationEntity location = locationDao.findLocationByCoordinates(request.getLatitude(), request.getLongitude());
-            if (location != null) {
-                List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(location.getIdLoc());
-                StringBuilder weatherInfo = new StringBuilder("Server: ").append(location.getCity()).append("\n");
+        } else if ("verifystatus".equals(request.getAction())) {
+            LocationEntity nearestLocation = getNearestLocation(request.getLatitude(), request.getLongitude());
+            if (nearestLocation != null) {
+                List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(nearestLocation.getIdLoc());
+                StringBuilder weatherInfo = new StringBuilder("Server: ").append(nearestLocation.getCity()).append("\n");
 
                 for (WeatherEntity weather : weatherList) {
                     if (isWeatherForNextDays(weather.getDate())) {
@@ -174,9 +174,26 @@ public class ClientThread extends Thread {
                     sendResponse("Info", "No weather data available for the next 3 days.", "");
                 }
             } else {
-                sendResponse("Error", "Location not found for the given coordinates.", "");
+                sendResponse("Error", "No location found for the given coordinates.", "");
             }
         }
+    }
+
+    // Metodă pentru a găsi cea mai apropiată locație pe baza coordonatelor
+    private LocationEntity getNearestLocation(double latitude, double longitude) {
+        List<LocationEntity> allLocations = locationDao.findAll(); // Sau un alt mod de a obține locațiile din DB
+        LocationEntity nearestLocation = null;
+        double minDistance = Double.MAX_VALUE;
+
+        for (LocationEntity location : allLocations) {
+            double distance = GeoUtils.calculateDistance(latitude, longitude, location.getLatitude(), location.getLongitude());
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestLocation = location;
+            }
+        }
+
+        return nearestLocation;
     }
 
     private void createUser(Request request, String email, String hashedPassword) {

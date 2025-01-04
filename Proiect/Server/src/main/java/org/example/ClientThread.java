@@ -14,6 +14,8 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
@@ -46,21 +48,27 @@ public class ClientThread extends Thread {
                 String message = (String) this.in.readObject();
                 Request request = gson.fromJson(message, Request.class);
 
-                // Dacă utilizatorul este deja autentificat, nu mai cere email și parolă
-                if (authenticatedUser == null) {
-                    System.out.println("Received email: " + request.getEmail());
-                    System.out.println("Received password: " + request.getPassword());
-                    executeAuthentication(request);
-                } else {
-                    // Dacă utilizatorul este autentificat, poți efectua acțiunile fără a cere din nou datele
+                // Verifică acțiunea trimisă de client
+                if (request.getAction().equals("login")) {
+                    // Dacă acțiunea este "login", efectuăm autentificarea
+                    if (authenticatedUser == null) {
+                        executeAuthentication(request);
+                    }
+                } else if (authenticatedUser != null) {
+                    // Dacă utilizatorul este deja autentificat, efectuăm alte acțiuni
                     System.out.println("[Server] Authenticated user: " + authenticatedUser.getUsername());
                     if ("add_location".equals(request.getAction())) {
                         handleAddLocation(request);
                     } else if ("add_weather".equals(request.getAction())) {
                         handleAddWeather(request);
+                    } else if ("verifystatus".equals(request.getAction())) {
+                        handleUserActions(request);  // Nu mai este nevoie de `user`
                     } else {
-                        sendResponse("Error", "Unknown action. Please choose either 'add_location' or 'add_weather'.", "");
+                        sendResponse("Error", "Unknown action. Please choose either 'add_location', 'add_weather', or 'verifystatus'.", "");
                     }
+                } else {
+                    // Dacă utilizatorul nu este autentificat și trimite o acțiune care nu este "login"
+                    sendResponse("Error", "You must log in first.", "");
                 }
             }
         } catch (IOException | ClassNotFoundException e) {
@@ -90,7 +98,7 @@ public class ClientThread extends Thread {
                     sendResponse("Admin Actions", "Please choose an action: add_location or add_weather.", "");
                 } else {
                     System.out.println("[Server] User is regular.");
-                    handleUserActions(request, user);
+                    handleUserActions(request);
                 }
             } else {
                 System.out.println("[Server] Incorrect password for email: " + email);
@@ -139,13 +147,25 @@ public class ClientThread extends Thread {
         sendResponse("Success", "Weather data added successfully!", "");
     }
 
-    private void handleUserActions(Request request, UserEntity user) {
+    private void handleUserActions(Request request) {
+        // Folosește `authenticatedUser` direct, nu mai este nevoie să treci `UserEntity user` ca parametru.
+        UserEntity user = authenticatedUser;
+
         if (request.getLatitude() == 0.0 && request.getLongitude() == 0.0) {
             sendResponse("Success", "Login successful. Welcome, " + user.getUsername() + "!", "");
         } else if ("verifystatus".equals(request.getAction())) {
             LocationEntity nearestLocation = getNearestLocation(request.getLatitude(), request.getLongitude());
             if (nearestLocation != null) {
                 List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(nearestLocation.getIdLoc());
+
+                // Sortăm lista de vreme în funcție de data în ordine crescătoare
+                Collections.sort(weatherList, new Comparator<WeatherEntity>() {
+                    @Override
+                    public int compare(WeatherEntity w1, WeatherEntity w2) {
+                        return w1.getDate().compareTo(w2.getDate());  // Comparație pe data
+                    }
+                });
+
                 StringBuilder weatherInfo = new StringBuilder("Server: ").append(nearestLocation.getCity()).append("\n");
 
                 for (WeatherEntity weather : weatherList) {

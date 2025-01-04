@@ -3,9 +3,8 @@ package org.example;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.example.data_source.dao.LocationDao;
-import org.example.data_source.dao.LocationWeatherDao;
-import org.example.data_source.dao.UserDao;
 import org.example.data_source.dao.WeatherDao;
+import org.example.data_source.dao.UserDao;
 import org.example.data_source.model.*;
 import org.example.network.Request;
 
@@ -26,6 +25,7 @@ public class ClientThread extends Thread {
     private final Gson gson;
     private final WeatherDao weatherDao = new WeatherDao();
     private final LocationDao locationDao = new LocationDao();
+    private UserEntity authenticatedUser = null;  // Utilizatorul autentificat
 
     public ClientThread(Socket socket) {
         this.socket = socket;
@@ -46,17 +46,29 @@ public class ClientThread extends Thread {
                 String message = (String) this.in.readObject();
                 Request request = gson.fromJson(message, Request.class);
 
-                System.out.println("Received email: " + request.getEmail());
-                System.out.println("Received password: " + request.getPassword());
-
-                execute(request);
+                // Dacă utilizatorul este deja autentificat, nu mai cere email și parolă
+                if (authenticatedUser == null) {
+                    System.out.println("Received email: " + request.getEmail());
+                    System.out.println("Received password: " + request.getPassword());
+                    executeAuthentication(request);
+                } else {
+                    // Dacă utilizatorul este autentificat, poți efectua acțiunile fără a cere din nou datele
+                    System.out.println("[Server] Authenticated user: " + authenticatedUser.getUsername());
+                    if ("add_location".equals(request.getAction())) {
+                        handleAddLocation(request);
+                    } else if ("add_weather".equals(request.getAction())) {
+                        handleAddWeather(request);
+                    } else {
+                        sendResponse("Error", "Unknown action. Please choose either 'add_location' or 'add_weather'.", "");
+                    }
+                }
             }
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void execute(Request request) {
+    private void executeAuthentication(Request request) {
         String email = request.getEmail();
         String password = request.getPassword();
 
@@ -69,15 +81,13 @@ public class ClientThread extends Thread {
             System.out.println("[Server] User found: " + user.getUsername());
             if (user.getPassword().equals(hashedPassword)) {
                 System.out.println("[Server] Password correct for user: " + user.getUsername());
+                authenticatedUser = user;  // Păstrează utilizatorul autentificat
                 boolean isAdmin = user.getRoles().stream()
                         .anyMatch(role -> role.getId() == 2);
 
                 if (isAdmin) {
                     System.out.println("[Server] User is ADMIN.");
-                    // Trimitere mesaj pentru a întreba ce acțiune dorește admin-ul să efectueze
                     sendResponse("Admin Actions", "Please choose an action: add_location or add_weather.", "");
-                    // Așteptă un nou request pentru acțiune
-                    waitForAdminAction();
                 } else {
                     System.out.println("[Server] User is regular.");
                     handleUserActions(request, user);
@@ -90,27 +100,6 @@ public class ClientThread extends Thread {
         } else {
             System.out.println("[Server] User not found. Creating new user with email: " + email);
             createUser(request, email, hashedPassword);
-        }
-    }
-
-    private void waitForAdminAction() {
-        // Așteaptă un nou request de la client (pentru a alege acțiunea)
-        try {
-            // Aici trebuie să așteptăm un alt request care conține acțiunea admin-ului
-            String serverData = (String) this.in.readObject();
-            Request newRequest = gson.fromJson(serverData, Request.class);
-
-            // Verifică acțiunea aleasă de admin
-            if ("add_location".equals(newRequest.getAction())) {
-                handleAddLocation(newRequest);
-            } else if ("add_weather".equals(newRequest.getAction())) {
-                handleAddWeather(newRequest);
-            } else {
-                sendResponse("Error", "Unknown action. Please choose either 'add_location' or 'add_weather'.", "");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            sendResponse("Error", "Failed to process admin action.", "");
         }
     }
 

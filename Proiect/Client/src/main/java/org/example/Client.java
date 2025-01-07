@@ -71,7 +71,9 @@ public class Client {
             System.out.println("Admin Menu:");
             System.out.println("1. Add new location");
             System.out.println("2. Add weather data");
-            System.out.println("3. Exit");
+            System.out.println("3. Delete location");
+            System.out.println("4. Delete weather data");
+            System.out.println("5. Exit");
 
             int choice = 0;
             boolean validChoice = false;
@@ -79,27 +81,31 @@ public class Client {
             while (!validChoice) {
                 try {
                     choice = scanner.nextInt();
-                    if (choice >= 1 && choice <= 3) {
+                    if (choice >= 1 && choice <= 5) {
                         validChoice = true;
                     } else {
                         System.out.println("Invalid choice. Please select a valid option.");
                     }
                 } catch (Exception e) {
-                    System.out.println("Invalid input. Please enter a number between 1 and 3.");
+                    System.out.println("Invalid input. Please enter a number between 1 and 5.");
                     scanner.next();
                 }
             }
 
             switch (choice) {
                 case 1:
-                    System.out.println("[Client] Admin selected option: 1");
                     addNewLocation(scanner);
                     break;
                 case 2:
-                    System.out.println("[Client] Admin selected option: 2");
                     addWeatherData(scanner);
                     break;
                 case 3:
+                    deleteLocation(scanner);
+                    break;
+                case 4:
+                    deleteWeatherData(scanner);
+                    break;
+                case 5:
                     System.out.println("Exiting admin menu.");
                     return;
                 default:
@@ -107,6 +113,31 @@ public class Client {
             }
         }
     }
+
+    private void deleteLocation(Scanner scanner) {
+        scanner.nextLine(); // Consume newline
+        System.out.println("Enter the city name of the location to delete: ");
+        String city = scanner.nextLine();
+
+        Request request = new Request();
+        request.setAction("delete_location");
+        request.setCity(city);
+
+        sendRequestToServer(request);
+    }
+
+    private void deleteWeatherData(Scanner scanner) {
+        scanner.nextLine(); // Consume newline
+        System.out.println("Enter the city name for which you want to delete weather data: ");
+        String city = scanner.nextLine();
+
+        Request request = new Request();
+        request.setAction("delete_weather");
+        request.setCity(city);
+
+        sendRequestToServer(request);
+    }
+
 
     private void handleUserLogin(Scanner scanner, Request request) {
         while (true) {

@@ -48,26 +48,32 @@ public class ClientThread extends Thread {
                 String message = (String) this.in.readObject();
                 Request request = gson.fromJson(message, Request.class);
 
-                // Verifică acțiunea trimisă de client
                 if (request.getAction().equals("login")) {
-                    // Dacă acțiunea este "login", efectuăm autentificarea
                     if (authenticatedUser == null) {
                         executeAuthentication(request);
                     }
                 } else if (authenticatedUser != null) {
-                    // Dacă utilizatorul este deja autentificat, efectuăm alte acțiuni
                     System.out.println("[Server] Authenticated user: " + authenticatedUser.getUsername());
-                    if ("add_location".equals(request.getAction())) {
-                        handleAddLocation(request);
-                    } else if ("add_weather".equals(request.getAction())) {
-                        handleAddWeather(request);
-                    } else if ("verifystatus".equals(request.getAction())) {
-                        handleUserActions(request);  // Nu mai este nevoie de `user`
-                    } else {
-                        sendResponse("Error", "Unknown action. Please choose either 'add_location', 'add_weather', or 'verifystatus'.", "");
+                    switch (request.getAction()) {
+                        case "add_location":
+                            handleAddLocation(request);
+                            break;
+                        case "add_weather":
+                            handleAddWeather(request);
+                            break;
+                        case "delete_location":
+                            handleDeleteLocation(request);
+                            break;
+                        case "delete_weather":
+                            handleDeleteWeather(request);
+                            break;
+                        case "verifystatus":
+                            handleUserActions(request);
+                            break;
+                        default:
+                            sendResponse("Error", "Unknown action. Please try again.", "");
                     }
                 } else {
-                    // Dacă utilizatorul nu este autentificat și trimite o acțiune care nu este "login"
                     sendResponse("Error", "You must log in first.", "");
                 }
             }
@@ -75,6 +81,31 @@ public class ClientThread extends Thread {
             throw new RuntimeException(e);
         }
     }
+
+    private void handleDeleteLocation(Request request) {
+        String city = request.getCity();
+        LocationEntity location = locationDao.findLocationByCity(city);
+
+        if (location != null) {
+            locationDao.deleteLocation(location.getIdLoc());
+            sendResponse("Success", "Location deleted successfully.", "");
+        } else {
+            sendResponse("Error", "Location not found.", "");
+        }
+    }
+
+    private void handleDeleteWeather(Request request) {
+        String city = request.getCity();
+        LocationEntity location = locationDao.findLocationByCity(city);
+
+        if (location != null) {
+            weatherDao.deleteWeatherByLocation(location.getIdLoc());
+            sendResponse("Success", "Weather data deleted successfully.", "");
+        } else {
+            sendResponse("Error", "Location not found. Cannot delete weather data.", "");
+        }
+    }
+
 
     private void executeAuthentication(Request request) {
         String email = request.getEmail();

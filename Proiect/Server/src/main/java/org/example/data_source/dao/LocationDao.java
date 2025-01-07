@@ -57,6 +57,26 @@ public class LocationDao {
         }
     }
 
+    public void deleteLocation(int locationId) {
+        EntityTransaction transaction = entityManager.getTransaction();
+        try {
+            transaction.begin();
+            LocationEntity location = entityManager.find(LocationEntity.class, locationId); // Caută locația
+            if (location != null) {
+                entityManager.remove(location); // Șterge locația
+            } else {
+                System.out.println("Location with ID " + locationId + " not found.");
+            }
+            transaction.commit();
+        } catch (RuntimeException e) {
+            if (transaction.isActive()) {
+                transaction.rollback();
+            }
+            throw e; // Aruncă eroarea mai departe pentru a fi gestionată
+        }
+    }
+
+
     // Metoda pentru a obține toate locațiile
     public List<LocationEntity> findAll() {
         return entityManager.createQuery("SELECT l FROM LocationEntity l", LocationEntity.class).getResultList();

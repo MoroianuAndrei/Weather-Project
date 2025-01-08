@@ -12,6 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 
 public class Client {
     private final int PORT = 6543;
@@ -31,8 +32,16 @@ public class Client {
             // Introducere username, email și parolă
             System.out.println("Insert your username: ");
             String username = scanner.nextLine();
-            System.out.println("Insert your email: ");
-            String email = scanner.nextLine();
+
+            String email;
+            do {
+                System.out.println("Insert your email: ");
+                email = scanner.nextLine();
+                if (!isValidEmail(email)) {
+                    System.out.println("Invalid email format. Please try again.");
+                }
+            } while (!isValidEmail(email)); // Se repetă până când email-ul este valid
+
             System.out.println("Insert your password: ");
             String password = scanner.nextLine();
 
@@ -64,6 +73,13 @@ public class Client {
             System.err.println("Error: Class not found while processing server response.");
             e.printStackTrace();
         }
+    }
+
+    // Metoda pentru validarea email-ului
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$";
+        Pattern pattern = Pattern.compile(emailRegex);
+        return pattern.matcher(email).matches();
     }
 
     private void showAdminMenu(Scanner scanner) {

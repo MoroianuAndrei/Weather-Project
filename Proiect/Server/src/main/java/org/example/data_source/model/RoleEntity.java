@@ -29,4 +29,17 @@ public class RoleEntity {
     public void setRole(Role role) {
         this.name= role.name();
     }
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        RoleEntity other = (RoleEntity) obj;
+        return id == other.id && name.equals(other.name);
+    }
 }

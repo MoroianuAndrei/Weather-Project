@@ -24,4 +24,17 @@ public class LocationEntity {
 
     @Column(name = "longitude")
     private double longitude;
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(idLoc);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        LocationEntity other = (LocationEntity) obj;
+        return idLoc == other.idLoc && city.equals(other.city);
+    }
 }

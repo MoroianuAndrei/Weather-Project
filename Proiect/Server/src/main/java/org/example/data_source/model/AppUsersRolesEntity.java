@@ -17,4 +17,19 @@ public class AppUsersRolesEntity {
 
     @Column(name = "role_id")
     private int roleId;
+
+    @Override
+    public int hashCode() {
+        return Integer.hashCode(id);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        AppUsersRolesEntity other = (AppUsersRolesEntity) obj;
+        return id == other.id &&
+                appUserId == other.appUserId &&
+                roleId == other.roleId;
+    }
 }

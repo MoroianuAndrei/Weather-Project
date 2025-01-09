@@ -20,10 +20,11 @@ public class Client {
     private ObjectInputStream in;
 
     public void start() {
-        Gson gson = new GsonBuilder()
-                .create(); // No need for a LocalDateAdapter
+        Gson gson = new GsonBuilder().create();
+        Socket socket = null;
 
-        try (Socket socket = new Socket("localhost", PORT)) {
+        try {
+            socket = new Socket("localhost", PORT);
             this.out = new ObjectOutputStream(socket.getOutputStream());
             this.in = new ObjectInputStream(socket.getInputStream());
 
@@ -40,7 +41,7 @@ public class Client {
                 if (!isValidEmail(email)) {
                     System.out.println("Invalid email format. Please try again.");
                 }
-            } while (!isValidEmail(email)); // Se repetă până când email-ul este valid
+            } while (!isValidEmail(email));
 
             System.out.println("Insert your password: ");
             String password = scanner.nextLine();
@@ -59,9 +60,7 @@ public class Client {
                 return;
             }
 
-            // Dacă utilizatorul este admin, afișăm meniul admin
             if (response.getMessage().toLowerCase().contains("add_location or add_weather")) {
-                System.out.println("Debug: Admin detected, showing menu.");
                 showAdminMenu(scanner);
             } else {
                 handleUserLogin(scanner, request);
@@ -72,10 +71,11 @@ public class Client {
         } catch (ClassNotFoundException e) {
             System.err.println("Error: Class not found while processing server response.");
             e.printStackTrace();
+        } finally {
+            closeResources();
         }
     }
 
-    // Metoda pentru validarea email-ului
     private boolean isValidEmail(String email) {
         String emailRegex = "^[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+[.][A-Za-z]+$";
         Pattern pattern = Pattern.compile(emailRegex);
@@ -91,22 +91,7 @@ public class Client {
             System.out.println("4. Delete weather data");
             System.out.println("5. Exit");
 
-            int choice = 0;
-            boolean validChoice = false;
-
-            while (!validChoice) {
-                try {
-                    choice = scanner.nextInt();
-                    if (choice >= 1 && choice <= 5) {
-                        validChoice = true;
-                    } else {
-                        System.out.println("Invalid choice. Please select a valid option.");
-                    }
-                } catch (Exception e) {
-                    System.out.println("Invalid input. Please enter a number between 1 and 5.");
-                    scanner.next();
-                }
-            }
+            int choice = getValidMenuChoice(scanner, 1, 5);
 
             switch (choice) {
                 case 1:
@@ -124,14 +109,12 @@ public class Client {
                 case 5:
                     System.out.println("Exiting admin menu.");
                     return;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
             }
         }
     }
 
     private void deleteLocation(Scanner scanner) {
-        scanner.nextLine(); // Consume newline
+        scanner.nextLine();
         System.out.println("Enter the city name of the location to delete: ");
         String city = scanner.nextLine();
 
@@ -143,7 +126,7 @@ public class Client {
     }
 
     private void deleteWeatherData(Scanner scanner) {
-        scanner.nextLine(); // Consume newline
+        scanner.nextLine();
         System.out.println("Enter the city name for which you want to delete weather data: ");
         String city = scanner.nextLine();
 
@@ -154,30 +137,13 @@ public class Client {
         sendRequestToServer(request);
     }
 
-
     private void handleUserLogin(Scanner scanner, Request request) {
         while (true) {
             System.out.println("User Menu:");
             System.out.println("1. Insert coordinates");
             System.out.println("2. Exit");
 
-            int choice = 0;
-            boolean validChoice = false;
-
-            // Validare alegere meniu
-            while (!validChoice) {
-                try {
-                    choice = scanner.nextInt();
-                    if (choice >= 1 && choice <= 2) {
-                        validChoice = true;
-                    } else {
-                        System.out.println("Invalid choice. Please select a valid option.");
-                    }
-                } catch (InputMismatchException e) {
-                    System.out.println("Invalid input. Please enter a number (1 or 2).");
-                    scanner.next(); // Consumă intrarea invalidă
-                }
-            }
+            int choice = getValidMenuChoice(scanner, 1, 2);
 
             switch (choice) {
                 case 1:
@@ -186,32 +152,24 @@ public class Client {
                 case 2:
                     System.out.println("Exiting user menu.");
                     return;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
             }
         }
     }
 
     private void insertCoordinates(Scanner scanner, Request request) {
-        // Inserare latitudine
         double latitude = getValidDoubleInput(scanner, "Insert your latitude: ");
-
-        // Inserare longitudine
         double longitude = getValidDoubleInput(scanner, "Insert your longitude: ");
 
-        // Actualizare cerere cu coordonatele introduse
         request.setLatitude(latitude);
         request.setLongitude(longitude);
         request.setAction("verifystatus");
 
-        // Trimitere cerere către server
         sendRequestToServer(request);
 
         try {
             String serverData = (String) this.in.readObject();
             Request response = new Gson().fromJson(serverData, Request.class);
 
-            // Afișare răspuns de la server
             System.out.println("Server: " + response.getMessage());
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -219,18 +177,14 @@ public class Client {
     }
 
     private void addNewLocation(Scanner scanner) {
-        scanner.nextLine(); // Consume the newline character
+        scanner.nextLine();
 
         System.out.println("Enter city name: ");
         String city = scanner.nextLine();
 
-        // Citirea latitudinii cu verificarea corectitudinii
         double latitude = getValidDoubleInput(scanner, "Enter latitude: ");
-
-        // Citirea longitudinii cu verificarea corectitudinii
         double longitude = getValidDoubleInput(scanner, "Enter longitude: ");
 
-        // Creăm cererea pentru adăugarea locației
         Request request = new Request();
         request.setAction("add_location");
         request.setCity(city);
@@ -241,28 +195,15 @@ public class Client {
     }
 
     private void addWeatherData(Scanner scanner) {
-        scanner.nextLine(); // Consumă newline-ul rămas
+        scanner.nextLine();
 
         System.out.println("Enter city name: ");
         String city = scanner.nextLine();
 
-        System.out.println("Enter latitude: ");
-        double latitude = scanner.nextDouble();
+        double latitude = getValidDoubleInput(scanner, "Enter latitude: ");
+        double longitude = getValidDoubleInput(scanner, "Enter longitude: ");
 
-        System.out.println("Enter longitude: ");
-        double longitude = scanner.nextDouble();
-
-        Date date = null;
-        while (date == null) {
-            System.out.println("Enter date (YYYY-MM-DD): ");
-            String dateString = scanner.next();
-            try {
-                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                date = dateFormat.parse(dateString);
-            } catch (ParseException e) {
-                System.out.println("Invalid date format. Please enter date in YYYY-MM-DD format.");
-            }
-        }
+        Date date = getValidDateInput(scanner);
 
         System.out.println("Enter temperature: ");
         String temperature = scanner.next();
@@ -282,40 +223,86 @@ public class Client {
         sendRequestToServer(request);
     }
 
-    // Metoda pentru citirea unui număr valid de tip double
+    private Date getValidDateInput(Scanner scanner) {
+        Date date = null;
+        while (date == null) {
+            System.out.println("Enter date (YYYY-MM-DD): ");
+            String dateString = scanner.next();
+            try {
+                date = new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
+            } catch (ParseException e) {
+                System.out.println("Invalid date format. Please enter date in YYYY-MM-DD format.");
+            }
+        }
+        return date;
+    }
+
+    private int getValidMenuChoice(Scanner scanner, int min, int max) {
+        int choice = 0;
+        boolean valid = false;
+
+        while (!valid) {
+            try {
+                choice = scanner.nextInt();
+                if (choice >= min && choice <= max) {
+                    valid = true;
+                } else {
+                    System.out.println("Invalid choice. Please try again.");
+                }
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid input. Please enter a number.");
+                scanner.next();
+            }
+        }
+
+        return choice;
+    }
+
     private double getValidDoubleInput(Scanner scanner, String prompt) {
         double inputValue = 0.0;
-        boolean validInput = false;
-        while (!validInput) {
+        boolean valid = false;
+
+        while (!valid) {
             System.out.println(prompt);
             try {
                 inputValue = scanner.nextDouble();
-                validInput = true; // Valoare validă introdusă, ieșim din buclă
+                valid = true;
             } catch (InputMismatchException e) {
-                System.out.println("Invalid input. Please enter a valid number for latitude/longitude.");
-                scanner.nextLine(); // Consumă linia curentă pentru a evita bucla infinită
+                System.out.println("Invalid input. Please enter a valid number.");
+                scanner.next();
             }
         }
+
         return inputValue;
     }
 
     private void sendRequestToServer(Request request) {
         try {
             if (request.getAction() == null || request.getAction().isEmpty()) {
-//                System.out.println("[Client] Error: Missing action in request.");
                 return;
             }
 
-//            System.out.println("[Client] Sending request to server: " + request.getAction());
             Gson gson = new Gson();
-
             String requestJson = gson.toJson(request);
+
             this.out.writeObject(requestJson);
             this.out.flush();
-
         } catch (IOException e) {
-//            System.err.println("[Client] Error during communication with the server: " + e.getMessage());
+            System.err.println("Error during communication with the server: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void closeResources() {
+        try {
+            if (in != null) {
+                in.close();
+            }
+            if (out != null) {
+                out.close();
+            }
+        } catch (IOException e) {
+            System.err.println("Error closing resources: " + e.getMessage());
         }
     }
 }

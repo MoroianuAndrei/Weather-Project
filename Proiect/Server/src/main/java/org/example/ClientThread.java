@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
@@ -46,40 +47,51 @@ public class ClientThread extends Thread {
     public void run() {
         try {
             while (true) {
-                String message = (String) this.in.readObject();
-                Request request = gson.fromJson(message, Request.class);
+                try {
+                    String message = (String) this.in.readObject();
+                    Request request = gson.fromJson(message, Request.class);
 
-                if (request.getAction().equals("login")) {
-                    if (authenticatedUser == null) {
-                        executeAuthentication(request);
+                    if (request.getAction().equals("login")) {
+                        if (authenticatedUser == null) {
+                            executeAuthentication(request);
+                        }
+                    } else if (authenticatedUser != null) {
+                        System.out.println("[Server] Authenticated user: " + authenticatedUser.getUsername());
+                        handleRequest(request);
+                    } else {
+                        sendResponse("Error", "You must log in first.", "");
                     }
-                } else if (authenticatedUser != null) {
-                    System.out.println("[Server] Authenticated user: " + authenticatedUser.getUsername());
-                    switch (request.getAction()) {
-                        case "add_location":
-                            handleAddLocation(request);
-                            break;
-                        case "add_weather":
-                            handleAddWeather(request);
-                            break;
-                        case "delete_location":
-                            handleDeleteLocation(request);
-                            break;
-                        case "delete_weather":
-                            handleDeleteWeather(request);
-                            break;
-                        case "verifystatus":
-                            handleUserActions(request);
-                            break;
-                        default:
-                            sendResponse("Error", "Unknown action. Please try again.", "");
-                    }
-                } else {
-                    sendResponse("Error", "You must log in first.", "");
+                } catch (ClassNotFoundException | IOException e) {
+//                    System.err.println("[Server] Error processing request: " + e.getMessage());
+                    break; // Oprește bucla doar pentru erori de conexiune sau IO.
                 }
             }
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (Exception e) {
+            System.err.println("[Server] Unexpected error: " + e.getMessage());
+        } finally {
+            closeConnection();
+        }
+    }
+
+    private void handleRequest(Request request) {
+        switch (request.getAction()) {
+            case "add_location":
+                handleAddLocation(request);
+                break;
+            case "add_weather":
+                handleAddWeather(request);
+                break;
+            case "delete_location":
+                handleDeleteLocation(request);
+                break;
+            case "delete_weather":
+                handleDeleteWeather(request);
+                break;
+            case "verifystatus":
+                handleUserActions(request);
+                break;
+            default:
+                sendResponse("Error", "Unknown action. Please try again.", "");
         }
     }
 
@@ -191,12 +203,7 @@ public class ClientThread extends Thread {
                 List<WeatherEntity> weatherList = weatherDao.findWeatherByLocation(nearestLocation.getIdLoc());
 
                 // Sortăm lista de vreme în funcție de data în ordine crescătoare
-                Collections.sort(weatherList, new Comparator<WeatherEntity>() {
-                    @Override
-                    public int compare(WeatherEntity w1, WeatherEntity w2) {
-                        return w1.getDate().compareTo(w2.getDate());  // Comparație pe data
-                    }
-                });
+                Collections.sort(weatherList, Comparator.comparing(WeatherEntity::getDate));
 
                 StringBuilder weatherInfo = new StringBuilder("Server: ").append(nearestLocation.getCity()).append("\n");
 
@@ -264,13 +271,17 @@ public class ClientThread extends Thread {
 
     private void closeConnection() {
         try {
-            if (!socket.isClosed()) {
+            if (in != null) in.close();
+            if (out != null) out.close();
+            if (socket != null && !socket.isClosed()) {
                 socket.close();
             }
+            System.out.println("[Server] Connection closed.");
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[Server] Error closing connection: " + e.getMessage());
         }
     }
+
 
     private String hashPassword(String password) {
         try {

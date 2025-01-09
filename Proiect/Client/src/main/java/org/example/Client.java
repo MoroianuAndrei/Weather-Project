@@ -267,11 +267,11 @@ public class Client {
     private void sendRequestToServer(Request request) {
         try {
             if (request.getAction() == null || request.getAction().isEmpty()) {
-                System.out.println("[Client] Error: Missing action in request.");
+//                System.out.println("[Client] Error: Missing action in request.");
                 return;
             }
 
-            System.out.println("[Client] Sending request to server: " + request.getAction());
+//            System.out.println("[Client] Sending request to server: " + request.getAction());
             Gson gson = new Gson();
 
             String requestJson = gson.toJson(request);
@@ -279,7 +279,7 @@ public class Client {
             this.out.flush();
 
         } catch (IOException e) {
-            System.err.println("[Client] Error during communication with the server: " + e.getMessage());
+//            System.err.println("[Client] Error during communication with the server: " + e.getMessage());
             e.printStackTrace();
         }
     }

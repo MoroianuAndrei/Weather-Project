@@ -14,6 +14,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -199,10 +200,13 @@ public class ClientThread extends Thread {
 
                 StringBuilder weatherInfo = new StringBuilder("Server: ").append(nearestLocation.getCity()).append("\n");
 
+                // Creează un obiect SimpleDateFormat pentru a formata data în formatul dorit
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
                 for (WeatherEntity weather : weatherList) {
                     if (isWeatherForNextDays(weather.getDate())) {
-                        weatherInfo.append("Date: ").append(weather.getDate())
-                                .append(" | Temp: ").append(weather.getTemperature())
+                        weatherInfo.append("Date: ").append(sdf.format(weather.getDate()))
+                                .append(" | Temp: ").append(weather.getTemperature()).append(" °C")
                                 .append(" | Condition: ").append(weather.getCondition())
                                 .append("\n");
                     }

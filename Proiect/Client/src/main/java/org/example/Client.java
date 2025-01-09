@@ -157,29 +157,64 @@ public class Client {
 
     private void handleUserLogin(Scanner scanner, Request request) {
         while (true) {
-            System.out.println("Insert your latitude: ");
-            double latitude = scanner.nextDouble();
-            System.out.println("Insert your longitude: ");
-            double longitude = scanner.nextDouble();
+            System.out.println("User Menu:");
+            System.out.println("1. Insert coordinates");
+            System.out.println("2. Exit");
 
-            request.setLatitude(latitude);
-            request.setLongitude(longitude);
-            request.setAction("verifystatus");
+            int choice = 0;
+            boolean validChoice = false;
 
-            sendRequestToServer(request); // Trimite cererea cu acțiunea corectă
-
-            try {
-                String serverData = (String) this.in.readObject();
-                Request response = new Gson().fromJson(serverData, Request.class);
-                System.out.println("Server: " + response.getMessage());
-
-                // Verifică dacă răspunsul este valid și iese din loop
-                if (response.getMessage().contains("Success") || response.getMessage().contains("No weather data available")) {
-                    break; // Iesi din loop la succes
+            // Validare alegere meniu
+            while (!validChoice) {
+                try {
+                    choice = scanner.nextInt();
+                    if (choice >= 1 && choice <= 2) {
+                        validChoice = true;
+                    } else {
+                        System.out.println("Invalid choice. Please select a valid option.");
+                    }
+                } catch (InputMismatchException e) {
+                    System.out.println("Invalid input. Please enter a number (1 or 2).");
+                    scanner.next(); // Consumă intrarea invalidă
                 }
-            } catch (IOException | ClassNotFoundException e) {
-                e.printStackTrace();
             }
+
+            switch (choice) {
+                case 1:
+                    insertCoordinates(scanner, request);
+                    break;
+                case 2:
+                    System.out.println("Exiting user menu.");
+                    return;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    private void insertCoordinates(Scanner scanner, Request request) {
+        // Inserare latitudine
+        double latitude = getValidDoubleInput(scanner, "Insert your latitude: ");
+
+        // Inserare longitudine
+        double longitude = getValidDoubleInput(scanner, "Insert your longitude: ");
+
+        // Actualizare cerere cu coordonatele introduse
+        request.setLatitude(latitude);
+        request.setLongitude(longitude);
+        request.setAction("verifystatus");
+
+        // Trimitere cerere către server
+        sendRequestToServer(request);
+
+        try {
+            String serverData = (String) this.in.readObject();
+            Request response = new Gson().fromJson(serverData, Request.class);
+
+            // Afișare răspuns de la server
+            System.out.println("Server: " + response.getMessage());
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 

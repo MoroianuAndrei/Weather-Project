@@ -170,7 +170,7 @@ public class Client {
             String serverData = (String) this.in.readObject();
             Request response = new Gson().fromJson(serverData, Request.class);
 
-            System.out.println("Server: " + response.getMessage());
+            System.out.println(response.getMessage());
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }

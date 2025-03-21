@@ -261,6 +261,8 @@ public class ClientThread extends Thread {
 
         userDao.saveAppUsersRoles(appUsersRolesEntity);
 
+        authenticatedUser = newUser;  // Autentificăm utilizatorul nou creat
+
         sendResponse("Success", "Account created successfully. Welcome, " + request.getUsername() + "!", "");
     }
 
@@ -298,7 +300,7 @@ public class ClientThread extends Thread {
     }
 
     private void sendResponse(String status, String message, String weatherInfo) {
-        String fullMessage = message + (weatherInfo.isEmpty() ? "" : " " + weatherInfo);
+        String fullMessage = message + (weatherInfo.isEmpty() ? "" : weatherInfo);
         Request response = new Request(status, fullMessage, "", "");
         try {
             this.out.writeObject(gson.toJson(response));
